@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react'
 import { useBeatStore } from '../store'
 import { layoutCells, cycleCell, layoutIndexAtStep } from '../utils'
-import { TRACK_COLORS } from '../types'
+import { DRUM_KIT } from '../types'
 import { BeatCell } from './BeatCell'
 
 interface BeatTrackProps {
@@ -12,21 +12,26 @@ interface BeatTrackProps {
 export function BeatTrack({ trackId, trackIndex }: BeatTrackProps) {
   const track = useBeatStore((s) => s.tracks.find((t) => t.id === trackId))
   const activePosition = useBeatStore((s) => s.activePosition)
+  const soloTrackId = useBeatStore((s) => s.soloTrackId)
   const updateCells = useBeatStore((s) => s.updateCells)
   const removeTrack = useBeatStore((s) => s.removeTrack)
   const resetTrack = useBeatStore((s) => s.resetTrack)
   const setTrackDivisions = useBeatStore((s) => s.setTrackDivisions)
+  const setTrackKit = useBeatStore((s) => s.setTrackKit)
+  const setTrackVolume = useBeatStore((s) => s.setTrackVolume)
   const toggleMute = useBeatStore((s) => s.toggleMute)
+  const toggleSolo = useBeatStore((s) => s.toggleSolo)
   const trackCount = useBeatStore((s) => s.tracks.length)
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
 
   if (!track) return null
 
+  const kit = DRUM_KIT.find(k => k.id === track.kitId) ?? DRUM_KIT[0]
   const { divisions } = track
   const layout = layoutCells(track.cells, divisions)
-  const color = TRACK_COLORS[trackIndex % TRACK_COLORS.length]
+  const isSoloed = soloTrackId === trackId
+  const isBackgrounded = soloTrackId !== null && !isSoloed
 
-  // Map activePosition (0..1) to this track's division
   const activeDiv = activePosition !== null
     ? Math.floor(activePosition * divisions) % divisions
     : null
@@ -45,83 +50,107 @@ export function BeatTrack({ trackId, trackIndex }: BeatTrackProps) {
 
   const handleDivisionsChange = useCallback(
     (newDiv: number) => {
-      if (newDiv >= 1 && newDiv <= 32) {
-        setTrackDivisions(trackId, newDiv)
-      }
+      if (newDiv >= 1 && newDiv <= 32) setTrackDivisions(trackId, newDiv)
     },
     [trackId, setTrackDivisions]
   )
 
   return (
-    <div className={`mb-3 ${track.muted ? 'opacity-60' : ''}`}>
-      {/* Track header */}
-      <div className="flex items-center gap-2 mb-1">
-        <div className={`w-3 h-3 rounded-full ${color.note}`} />
-        <span className="text-xs font-bold">{track.name}</span>
+    <div className={`mb-2 transition-opacity duration-150 ${
+      track.muted ? 'opacity-40' : isBackgrounded ? 'opacity-50' : ''
+    }`}>
+      <div className="flex items-center gap-1.5 mb-0.5">
+        {/* Track number badge */}
+        <span className="text-[9px] font-mono text-white/25 w-3 text-center">{trackIndex + 1}</span>
+
+        {/* Kit color dot */}
+        <div
+          className={`w-2.5 h-2.5 rounded-full ${isSoloed ? kit.activeColor : kit.color}`}
+          style={isSoloed ? { boxShadow: `0 0 6px ${kit.hex}` } : undefined}
+        />
+
+        {/* Instrument selector */}
+        <select
+          value={track.kitId}
+          onChange={(e) => setTrackKit(trackId, e.target.value)}
+          className="bg-white/5 rounded px-1.5 py-0.5 text-[11px] font-mono cursor-pointer border border-white/10"
+        >
+          {DRUM_KIT.map(k => (
+            <option key={k.id} value={k.id}>{k.shortName} — {k.name}</option>
+          ))}
+        </select>
+
+        {/* Solo/Focus */}
+        <button
+          onClick={() => toggleSolo(trackId)}
+          className={`px-1.5 py-0.5 text-[10px] rounded font-mono transition-colors ${
+            isSoloed
+              ? 'bg-amber-500 text-black font-bold'
+              : 'bg-white/5 text-white/40 hover:text-white/70'
+          }`}
+          title={`Focus track ${trackIndex + 1} (key: ${trackIndex + 1})`}
+        >
+          S
+        </button>
 
         {/* Mute */}
         <button
           onClick={() => toggleMute(trackId)}
-          className={`px-2 py-0.5 text-[10px] rounded transition-colors font-mono ${
+          className={`px-1.5 py-0.5 text-[10px] rounded font-mono transition-colors ${
             track.muted
-              ? 'bg-yellow-600/80 text-yellow-100'
+              ? 'bg-red-600/80 text-red-100'
               : 'bg-white/5 text-white/40 hover:text-white/70'
           }`}
         >
-          {track.muted ? 'MUTED' : 'M'}
+          M
         </button>
 
+        {/* Volume slider */}
+        <input
+          type="range"
+          min={0}
+          max={100}
+          value={Math.round(track.volume * 100)}
+          onChange={(e) => setTrackVolume(trackId, Number(e.target.value) / 100)}
+          className="w-16 h-3 accent-white/50"
+          title={`Volume: ${Math.round(track.volume * 100)}%`}
+        />
+        <span className="text-[9px] font-mono text-white/30 w-6">
+          {Math.round(track.volume * 100)}
+        </span>
+
         {/* Divisions */}
-        <div className="flex items-center gap-1 ml-1">
+        <div className="flex items-center gap-0.5">
+          <span className="text-[10px] text-white/30">÷</span>
           <button
             onClick={() => handleDivisionsChange(divisions - 1)}
-            className="w-5 h-5 rounded bg-white/10 hover:bg-white/20 text-xs flex items-center justify-center"
-          >
-            −
-          </button>
-          <span className="text-xs font-mono w-5 text-center">{divisions}</span>
+            className="w-4 h-4 rounded bg-white/10 hover:bg-white/20 text-[10px] flex items-center justify-center"
+          >−</button>
+          <span className="text-[11px] font-mono w-4 text-center">{divisions}</span>
           <button
             onClick={() => handleDivisionsChange(divisions + 1)}
-            className="w-5 h-5 rounded bg-white/10 hover:bg-white/20 text-xs flex items-center justify-center"
-          >
-            +
-          </button>
+            className="w-4 h-4 rounded bg-white/10 hover:bg-white/20 text-[10px] flex items-center justify-center"
+          >+</button>
         </div>
 
         <button
           onClick={() => resetTrack(trackId)}
-          className="text-[10px] text-white/40 hover:text-white/70 ml-1"
+          className="text-[10px] text-white/30 hover:text-white/60"
         >
           clear
         </button>
         {trackCount > 1 && (
           <button
             onClick={() => removeTrack(trackId)}
-            className="text-[10px] text-red-400/60 hover:text-red-400 ml-auto"
+            className="text-[10px] text-red-400/40 hover:text-red-400 ml-auto"
           >
-            remove
+            ×
           </button>
         )}
       </div>
 
-      {/* Division ticks */}
-      <div className="flex mb-0.5 gap-[1px]">
-        {Array.from({ length: divisions }, (_, i) => {
-          const pos = i / divisions
-          const isActive = activePosition !== null &&
-            activePosition >= pos &&
-            activePosition < (i + 1) / divisions
-          return (
-            <div
-              key={i}
-              className={`flex-1 h-0.5 ${isActive ? 'bg-yellow-400' : 'bg-white/15'}`}
-            />
-          )
-        })}
-      </div>
-
       {/* Grid */}
-      <div className="flex gap-[2px]">
+      <div className="flex gap-[1px]" style={{ marginLeft: '14px' }}>
         {layout.map((item, layoutIdx) => (
           <BeatCell
             key={`${item.start}-${item.cell.duration}`}
@@ -129,8 +158,9 @@ export function BeatTrack({ trackId, trackIndex }: BeatTrackProps) {
             divisions={divisions}
             isActive={layoutIdx === activeLayoutIdx}
             isHovered={hoveredIndex === layoutIdx}
-            trackColorClass={color.note}
+            trackColorClass={kit.activeColor}
             muted={track.muted}
+            kitHex={kit.hex}
             onToggleType={() => handleCycle(layoutIdx, 'type')}
             onGrow={(e) => { e.preventDefault(); handleCycle(layoutIdx, 'grow') }}
             onShrink={(e) => { e.preventDefault(); handleCycle(layoutIdx, 'shrink') }}

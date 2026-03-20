@@ -7,23 +7,13 @@ interface BeatCellProps {
   isHovered: boolean
   trackColorClass: string
   muted: boolean
+  kitHex: string
   onToggleType: () => void
   onGrow: (e: React.MouseEvent) => void
   onShrink: (e: React.MouseEvent) => void
   onContextMenu: (e: React.MouseEvent) => void
   onMouseEnter: () => void
   onMouseLeave: () => void
-}
-
-function cellColor(cell: Cell, trackColorClass: string, muted: boolean): string {
-  if (cell.type === 'rest') return 'bg-zinc-700/50'
-  if (muted) return 'bg-zinc-600/60'
-  return trackColorClass
-}
-
-function cellLabel(cell: Cell, duration: number): string {
-  if (cell.type === 'rest') return duration === 1 ? '·' : `·${duration}`
-  return duration === 1 ? '●' : `●${duration}`
 }
 
 export function BeatCell({
@@ -33,6 +23,7 @@ export function BeatCell({
   isHovered,
   trackColorClass,
   muted,
+  kitHex,
   onToggleType,
   onGrow,
   onShrink,
@@ -43,46 +34,54 @@ export function BeatCell({
   const widthPercent = (cell.duration / divisions) * 100
   const canShrink = cell.duration > 1
   const canGrow = cell.duration * 2 <= divisions
+  const isNote = cell.type === 'note'
 
   return (
     <div
       className={`
         relative flex flex-col items-center justify-center
-        rounded-md border-2 cursor-pointer select-none
-        transition-all duration-75
-        ${cellColor(cell, trackColorClass, muted)}
-        ${cell.type === 'note' ? (muted ? 'border-white/15' : 'border-white/30') : 'border-white/10'}
-        ${isHovered ? 'brightness-125 scale-[1.02]' : ''}
-        ${isActive ? 'ring-2 ring-yellow-400 brightness-150' : ''}
-        ${muted && cell.type === 'note' ? 'opacity-50' : ''}
+        rounded cursor-pointer select-none
+        transition-all duration-75 border
+        ${isNote
+          ? muted
+            ? 'bg-white/5 border-white/10'
+            : 'bg-white/8 border-white/20'
+          : 'bg-transparent border-white/5'
+        }
+        ${isHovered ? 'brightness-125 bg-white/10' : ''}
+        ${isActive ? 'ring-1 ring-yellow-400/80' : ''}
       `}
-      style={{ width: `${widthPercent}%`, height: '64px' }}
+      style={{ width: `${widthPercent}%`, height: '44px' }}
       onClick={onToggleType}
       onContextMenu={onContextMenu}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
     >
-      <span className="text-lg leading-none">
-        {cellLabel(cell, cell.duration)}
-      </span>
+      {/* Drum notation symbol */}
+      {isNote ? (
+        <span
+          className="text-base font-bold"
+          style={{ color: muted ? '#666' : kitHex }}
+        >
+          ×
+        </span>
+      ) : (
+        <span className="text-white/15 text-sm">𝄾</span>
+      )}
 
       {isHovered && (
-        <div className="absolute bottom-0.5 flex gap-1">
+        <div className="absolute -bottom-1 flex gap-0.5 z-10">
           {canShrink && (
             <button
-              className="w-5 h-5 rounded bg-black/40 hover:bg-black/60 text-xs flex items-center justify-center"
+              className="w-4 h-4 rounded-full bg-black/60 hover:bg-black/80 text-[9px] flex items-center justify-center text-white/70"
               onClick={(e) => { e.stopPropagation(); onShrink(e) }}
-            >
-              −
-            </button>
+            >−</button>
           )}
           {canGrow && (
             <button
-              className="w-5 h-5 rounded bg-black/40 hover:bg-black/60 text-xs flex items-center justify-center"
+              className="w-4 h-4 rounded-full bg-black/60 hover:bg-black/80 text-[9px] flex items-center justify-center text-white/70"
               onClick={(e) => { e.stopPropagation(); onGrow(e) }}
-            >
-              +
-            </button>
+            >+</button>
           )}
         </div>
       )}

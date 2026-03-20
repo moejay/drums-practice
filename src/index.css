@@ -1,10 +1,10 @@
 @import 'tailwindcss';
 
 :root {
-  --bg-primary: #1a1a2e;
-  --bg-secondary: #16213e;
-  --text-primary: #f1f1f1;
-  --text-secondary: #a0a0a0;
+  --bg-primary: #0a0a0f;
+  --bg-secondary: #111118;
+  --text-primary: #e8e8e8;
+  --text-secondary: #777;
 }
 
 body {
@@ -18,6 +18,9 @@ body {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
+}
+
+select option {
+  background: #1a1a2e;
+  color: #e8e8e8;
 }
