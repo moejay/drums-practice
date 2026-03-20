@@ -151,12 +151,29 @@ export function BeatTrack({ trackId, trackIndex }: BeatTrackProps) {
 
       {/* Grid */}
       <div className="flex gap-[1px]" style={{ marginLeft: '14px' }}>
-        {layout.map((item, layoutIdx) => (
+        {layout.map((item, layoutIdx) => {
+          // Compute fill progress for this cell
+          let fillPercent = 0
+          if (activePosition !== null && layoutIdx === activeLayoutIdx) {
+            const cellStart = item.start / divisions
+            const cellEnd = (item.start + item.cell.duration) / divisions
+            const cellSpan = cellEnd - cellStart
+            if (cellSpan > 0) {
+              fillPercent = Math.max(0, Math.min(1, (activePosition - cellStart) / cellSpan))
+            }
+          } else if (activePosition !== null) {
+            // Cells before the active one are fully filled
+            const cellEnd = (item.start + item.cell.duration) / divisions
+            if (activePosition >= cellEnd) fillPercent = 1
+          }
+
+          return (
           <BeatCell
             key={`${item.start}-${item.cell.duration}`}
             cell={item.cell}
             divisions={divisions}
             isActive={layoutIdx === activeLayoutIdx}
+            fillPercent={fillPercent}
             isHovered={hoveredIndex === layoutIdx}
             trackColorClass={kit.activeColor}
             muted={track.muted}
@@ -168,7 +185,8 @@ export function BeatTrack({ trackId, trackIndex }: BeatTrackProps) {
             onMouseEnter={() => setHoveredIndex(layoutIdx)}
             onMouseLeave={() => setHoveredIndex(null)}
           />
-        ))}
+          )
+        })}
       </div>
     </div>
   )

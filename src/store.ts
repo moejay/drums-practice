@@ -41,7 +41,7 @@ function makeTrack(index: number, divisions: number = 4, kitId?: string): Track 
   }
 }
 
-function snapshotTracks(tracks: Track[]): TrackSnapshot[] {
+export function snapshotTracks(tracks: Track[]): TrackSnapshot[] {
   return tracks.map(t => ({
     cells: t.cells.map(c => ({ ...c })),
     pitch: t.pitch,
@@ -248,6 +248,7 @@ interface BeatStore {
   addVariationFromPattern: (patternId: string, bars?: number) => void
   removeVariation: (varId: string) => void
   setVariationBars: (varId: string, bars: number) => void
+  setVariationFocus: (varId: string, kitId: string | undefined) => void
   moveVariation: (fromIdx: number, toIdx: number) => void
   jumpToVariation: (index: number) => void
   advanceVariation: () => boolean // returns false if playlist ended
@@ -458,6 +459,19 @@ export const useBeatStore = create<BeatStore>((set, get) => ({
     })
   },
 
+  setVariationFocus: (varId, kitId) => {
+    const { activePlaylist } = get()
+    if (!activePlaylist) return
+    set({
+      activePlaylist: {
+        ...activePlaylist,
+        variations: activePlaylist.variations.map(v =>
+          v.id === varId ? { ...v, focusKitId: kitId } : v
+        ),
+      },
+    })
+  },
+
   moveVariation: (fromIdx, toIdx) => {
     const { activePlaylist } = get()
     if (!activePlaylist) return
@@ -472,7 +486,16 @@ export const useBeatStore = create<BeatStore>((set, get) => ({
     if (!activePlaylist || index < 0 || index >= activePlaylist.variations.length) return
     const variation = activePlaylist.variations[index]
     const newTracks = tracksFromSnapshot(variation.tracks, currentTracks)
-    set({ activeVariationIndex: index, variationBar: 0, tracks: newTracks })
+    // Apply focus from the variation
+    const focusTrack = variation.focusKitId
+      ? newTracks.find(t => t.kitId === variation.focusKitId)
+      : null
+    set({
+      activeVariationIndex: index,
+      variationBar: 0,
+      tracks: newTracks,
+      soloTrackId: focusTrack?.id ?? null,
+    })
     get().updateUpcomingPreview()
   },
 
@@ -503,7 +526,15 @@ export const useBeatStore = create<BeatStore>((set, get) => ({
 
     const variation = activePlaylist.variations[nextIdx]
     const newTracks = tracksFromSnapshot(variation.tracks, get().tracks)
-    set({ activeVariationIndex: nextIdx, variationBar: 0, tracks: newTracks })
+    const focusTrack = variation.focusKitId
+      ? newTracks.find(t => t.kitId === variation.focusKitId)
+      : null
+    set({
+      activeVariationIndex: nextIdx,
+      variationBar: 0,
+      tracks: newTracks,
+      soloTrackId: focusTrack?.id ?? null,
+    })
     get().updateUpcomingPreview()
     return true
   },

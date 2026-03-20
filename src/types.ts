@@ -135,6 +135,7 @@ export interface Variation {
   name: string
   bars: number // how many times to repeat this pattern
   tracks: TrackSnapshot[]
+  focusKitId?: string // which instrument to solo/focus during this variation
 }
 
 export interface Playlist {

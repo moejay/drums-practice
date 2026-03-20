@@ -17,6 +17,7 @@ export function PlaylistManager() {
   const addVariationFromPattern = useBeatStore((s) => s.addVariationFromPattern)
   const removeVariation = useBeatStore((s) => s.removeVariation)
   const setVariationBars = useBeatStore((s) => s.setVariationBars)
+  const setVariationFocus = useBeatStore((s) => s.setVariationFocus)
   const moveVariation = useBeatStore((s) => s.moveVariation)
   const jumpToVariation = useBeatStore((s) => s.jumpToVariation)
   const togglePlaylistLoop = useBeatStore((s) => s.togglePlaylistLoop)
@@ -176,6 +177,21 @@ export function PlaylistManager() {
                   {v.name}
                 </span>
                 <span className="text-[9px] text-white/30 font-mono">{kitNames}</span>
+
+                {/* Focus instrument */}
+                <select
+                  value={v.focusKitId ?? ''}
+                  onClick={(e) => e.stopPropagation()}
+                  onChange={(e) => setVariationFocus(v.id, e.target.value || undefined)}
+                  className="bg-white/5 rounded px-1 py-0.5 text-[9px] font-mono cursor-pointer border border-white/10 w-14"
+                  title="Focus instrument"
+                >
+                  <option value="">--</option>
+                  {v.tracks.map(t => {
+                    const kit = DRUM_KIT.find(k => k.id === t.kitId)
+                    return <option key={t.kitId} value={t.kitId}>{kit?.shortName ?? t.kitId}</option>
+                  })}
+                </select>
 
                 {/* Bar count */}
                 <div className="flex items-center gap-0.5">

@@ -1,11 +1,9 @@
 import { DRUM_KIT } from './types'
 import type { Cell, Variation, Playlist, TrackSnapshot } from './types'
 
-// --- Polyrhythm pool ---
-
 interface PolyDef {
   name: string
-  divisions: [number, number] // [track1 divisions, track2 divisions]
+  divisions: [number, number]
 }
 
 const POLY_POOL: PolyDef[] = [
@@ -25,7 +23,6 @@ const POLY_POOL: PolyDef[] = [
   { name: '13 over 8', divisions: [13, 8] },
 ]
 
-// Instrument pairings that make musical sense
 const INSTRUMENT_PAIRS: [string, string][] = [
   ['hihat', 'kick'],
   ['hihat', 'snare'],
@@ -41,22 +38,19 @@ const INSTRUMENT_PAIRS: [string, string][] = [
   ['snare', 'tom-hi'],
 ]
 
-export type GenerateMode = 'polyrhythms' | 'instruments' | 'both'
-
 export interface GenerateOptions {
   durationSeconds: number
   bpm: number
-  mode: GenerateMode
-  barsPerVariation: number // how many bars each variation lasts
+  barsPerVariation: number
+  varyPolyrhythms: boolean
+  varyInstruments: boolean
+  varyFocus: boolean
+  // Base pattern to use (current tracks)
+  baseTracks: TrackSnapshot[]
 }
 
 function pick<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)]
-}
-
-function pickN<T>(arr: T[], n: number): T[] {
-  const shuffled = [...arr].sort(() => Math.random() - 0.5)
-  return shuffled.slice(0, n)
 }
 
 function fillCells(divisions: number): Cell[] {
@@ -74,69 +68,7 @@ function makeSnapshot(divisions: number, kitId: string): TrackSnapshot {
   }
 }
 
-let genVarId = 1
-
-export function generatePlaylist(options: GenerateOptions): Playlist {
-  const { durationSeconds, bpm, mode, barsPerVariation } = options
-  const measureDur = (60 / bpm) * 4 // seconds per measure
-  const totalBars = Math.max(1, Math.ceil(durationSeconds / measureDur))
-  const variationCount = Math.max(1, Math.ceil(totalBars / barsPerVariation))
-
-  // Pick a pool of polyrhythms and instruments to draw from
-  const usedPolys = new Set<string>()
-  const usedPairs = new Set<string>()
-
-  const variations: Variation[] = []
-
-  for (let i = 0; i < variationCount; i++) {
-    let poly: PolyDef
-    let pair: [string, string]
-
-    if (mode === 'polyrhythms') {
-      // Vary polyrhythm, keep instruments changing slowly
-      poly = pickUnused(POLY_POOL, usedPolys, p => p.name)
-      pair = i === 0 ? pick(INSTRUMENT_PAIRS) : variations[i - 1]
-        ? [variations[i - 1].tracks[0].kitId, variations[i - 1].tracks[1].kitId] as [string, string]
-        : pick(INSTRUMENT_PAIRS)
-      // Every 3rd variation, swap instruments too for variety
-      if (i > 0 && i % 3 === 0) {
-        pair = pick(INSTRUMENT_PAIRS)
-      }
-    } else if (mode === 'instruments') {
-      // Keep polyrhythm, vary instruments
-      poly = i === 0 ? pick(POLY_POOL) : { name: variations[0].name.split(' on ')[0], divisions: [variations[0].tracks[0].divisions, variations[0].tracks[1].divisions] }
-      pair = pickUnusedPair(INSTRUMENT_PAIRS, usedPairs)
-    } else {
-      // Both
-      poly = pickUnused(POLY_POOL, usedPolys, p => p.name)
-      pair = pickUnusedPair(INSTRUMENT_PAIRS, usedPairs)
-    }
-
-    const name = `${poly.name} on ${shortName(pair[0])}+${shortName(pair[1])}`
-    const tracks: TrackSnapshot[] = [
-      makeSnapshot(poly.divisions[0], pair[0]),
-      makeSnapshot(poly.divisions[1], pair[1]),
-    ]
-
-    variations.push({
-      id: `gen-var-${genVarId++}`,
-      name,
-      bars: barsPerVariation,
-      tracks,
-    })
-  }
-
-  return {
-    id: `playlist-gen-${Date.now()}`,
-    name: `Generated ${formatDuration(durationSeconds)} (${mode})`,
-    variations,
-    loop: true,
-    shuffle: false,
-  }
-}
-
 function pickUnused<T>(pool: T[], used: Set<string>, key: (item: T) => string): T {
-  // Try to pick something not used yet
   const available = pool.filter(p => !used.has(key(p)))
   const item = available.length > 0 ? pick(available) : pick(pool)
   used.add(key(item))
@@ -162,7 +94,104 @@ function formatDuration(seconds: number): string {
   return secs > 0 ? `${mins}m${secs}s` : `${mins}m`
 }
 
-// Preset duration options
+let genVarId = 1
+
+export function generatePlaylist(options: GenerateOptions): Playlist {
+  const { durationSeconds, bpm, barsPerVariation, varyPolyrhythms, varyInstruments, varyFocus, baseTracks } = options
+  const measureDur = (60 / bpm) * 4
+  const totalBars = Math.max(1, Math.ceil(durationSeconds / measureDur))
+  const variationCount = Math.max(1, Math.ceil(totalBars / barsPerVariation))
+
+  const usedPolys = new Set<string>()
+  const usedPairs = new Set<string>()
+
+  // Extract base poly and instruments from current pattern
+  const basePoly: PolyDef = baseTracks.length >= 2
+    ? { name: `${baseTracks[0].divisions} over ${baseTracks[1].divisions}`, divisions: [baseTracks[0].divisions, baseTracks[1].divisions] }
+    : baseTracks.length === 1
+      ? { name: `${baseTracks[0].divisions}`, divisions: [baseTracks[0].divisions, 4] }
+      : pick(POLY_POOL)
+
+  const basePair: [string, string] = baseTracks.length >= 2
+    ? [baseTracks[0].kitId, baseTracks[1].kitId]
+    : baseTracks.length === 1
+      ? [baseTracks[0].kitId, 'kick']
+      : pick(INSTRUMENT_PAIRS)
+
+  const variations: Variation[] = []
+
+  // Build mode label
+  const flags: string[] = []
+  if (varyPolyrhythms) flags.push('poly')
+  if (varyInstruments) flags.push('inst')
+  if (varyFocus) flags.push('focus')
+  const modeLabel = flags.length > 0 ? flags.join('+') : 'fixed'
+
+  for (let i = 0; i < variationCount; i++) {
+    let poly: PolyDef
+    let pair: [string, string]
+    let focusKitId: string | undefined
+
+    // Polyrhythm: use base or vary
+    if (varyPolyrhythms && i > 0) {
+      poly = pickUnused(POLY_POOL, usedPolys, p => p.name)
+    } else if (i === 0 || !varyPolyrhythms) {
+      poly = basePoly
+    } else {
+      poly = basePoly
+    }
+
+    // Instruments: use base or vary
+    if (varyInstruments && i > 0) {
+      pair = pickUnusedPair(INSTRUMENT_PAIRS, usedPairs)
+    } else {
+      pair = basePair
+    }
+
+    // Focus: alternate between the two instruments
+    if (varyFocus) {
+      focusKitId = i % 2 === 0 ? pair[0] : pair[1]
+    } else {
+      focusKitId = undefined
+    }
+
+    const focusLabel = focusKitId ? ` [${shortName(focusKitId)}]` : ''
+    const name = `${poly.name} on ${shortName(pair[0])}+${shortName(pair[1])}${focusLabel}`
+
+    // Use base track cells for the first variation (preserves user's rhythm),
+    // generate fresh cells for new polys/instruments
+    let tracks: TrackSnapshot[]
+    if (i === 0 && !varyPolyrhythms && !varyInstruments) {
+      // Use the actual base pattern
+      tracks = baseTracks.map(t => ({ ...t, cells: t.cells.map(c => ({ ...c })) }))
+    } else if (!varyPolyrhythms && !varyInstruments) {
+      // Same poly+instruments, reuse base cells
+      tracks = baseTracks.map(t => ({ ...t, cells: t.cells.map(c => ({ ...c })) }))
+    } else {
+      tracks = [
+        makeSnapshot(poly.divisions[0], pair[0]),
+        makeSnapshot(poly.divisions[1], pair[1]),
+      ]
+    }
+
+    variations.push({
+      id: `gen-var-${genVarId++}`,
+      name,
+      bars: barsPerVariation,
+      tracks,
+      focusKitId,
+    })
+  }
+
+  return {
+    id: `playlist-gen-${Date.now()}`,
+    name: `Generated ${formatDuration(durationSeconds)} (${modeLabel})`,
+    variations,
+    loop: true,
+    shuffle: false,
+  }
+}
+
 export const DURATION_PRESETS = [
   { label: '30s', seconds: 30 },
   { label: '1 min', seconds: 60 },

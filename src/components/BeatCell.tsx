@@ -4,6 +4,7 @@ interface BeatCellProps {
   cell: Cell
   divisions: number
   isActive: boolean
+  fillPercent: number // 0..1, how much of this cell has been played
   isHovered: boolean
   trackColorClass: string
   muted: boolean
@@ -20,6 +21,7 @@ export function BeatCell({
   cell,
   divisions,
   isActive,
+  fillPercent,
   isHovered,
   trackColorClass,
   muted,
@@ -35,11 +37,12 @@ export function BeatCell({
   const canShrink = cell.duration > 1
   const canGrow = cell.duration * 2 <= divisions
   const isNote = cell.type === 'note'
+  const showFill = isActive && fillPercent > 0
 
   return (
     <div
       className={`
-        relative flex flex-col items-center justify-center
+        relative flex flex-col items-center justify-center overflow-hidden
         rounded cursor-pointer select-none
         transition-all duration-75 border
         ${isNote
@@ -57,17 +60,32 @@ export function BeatCell({
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
     >
-      {/* Drum notation symbol */}
-      {isNote ? (
-        <span
-          className="text-base font-bold"
-          style={{ color: muted ? '#666' : kitHex }}
-        >
-          ×
-        </span>
-      ) : (
-        <span className="text-white/15 text-sm">𝄾</span>
+      {/* Progress fill */}
+      {showFill && (
+        <div
+          className="absolute inset-y-0 left-0"
+          style={{
+            width: `${fillPercent * 100}%`,
+            background: isNote
+              ? `${kitHex}22`
+              : 'rgba(255,255,255,0.03)',
+          }}
+        />
       )}
+
+      {/* Drum notation symbol */}
+      <span className="relative z-[1]">
+        {isNote ? (
+          <span
+            className="text-base font-bold"
+            style={{ color: muted ? '#666' : kitHex }}
+          >
+            ×
+          </span>
+        ) : (
+          <span className="text-white/15 text-sm">𝄾</span>
+        )}
+      </span>
 
       {isHovered && (
         <div className="absolute -bottom-1 flex gap-0.5 z-10">
