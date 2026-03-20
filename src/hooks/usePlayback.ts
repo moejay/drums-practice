@@ -2,6 +2,7 @@ import { useEffect, useRef, useCallback } from 'react'
 import { useBeatStore } from '../store'
 import { layoutCells } from '../utils'
 import { playDrumHit } from '../audio'
+import { speakCount, stopCounting } from '../counting'
 
 const SOLO_BG_VOLUME = 0.35
 
@@ -19,6 +20,7 @@ export function usePlayback() {
   const stop = useCallback(() => {
     playingRef.current = false
     clearTimer()
+    stopCounting()
     useBeatStore.getState().setPlaying(false)
   }, [])
 
@@ -59,6 +61,8 @@ export function usePlayback() {
         kitId: string
         trackId: string
         volume: number
+        noteNumber: number       // 1-based index of this note within its track
+        noteDurationSec: number  // how long until the next note on this track
       }
 
       const events: Event[] = []
@@ -66,9 +70,11 @@ export function usePlayback() {
       for (const track of tracks) {
         const layout = layoutCells(track.cells, track.divisions)
         const divDur = measureDur / track.divisions
+        let noteCount = 0
 
         for (const item of layout) {
           if (item.cell.type === 'note') {
+            noteCount++
             const timeOffset = item.start * divDur
             events.push({
               timeOffset,
@@ -78,6 +84,8 @@ export function usePlayback() {
               kitId: track.kitId,
               trackId: track.id,
               volume: track.volume,
+              noteNumber: noteCount,
+              noteDurationSec: item.cell.duration * divDur,
             })
           }
         }
@@ -91,6 +99,7 @@ export function usePlayback() {
           events.push({
             timeOffset: pos * measureDur,
             position: pos, pitch: 0, muted: true, kitId: '', trackId: '', volume: 0,
+            noteNumber: 0, noteDurationSec: 0,
           })
         }
       }
@@ -135,6 +144,24 @@ export function usePlayback() {
               useBeatStore.getState().setActiveHits(new Set())
             }
           }, 80)
+        }
+
+        // Counting voice: play tone for focused track (or first track)
+        const { countingEnabled, countingVolume, soloTrackId: soloId, tracks: currentTracks } = useBeatStore.getState()
+        if (countingEnabled) {
+          // Find the kitId to count: solo track's kit, or first track's kit
+          const soloTrack = soloId ? currentTracks.find(t => t.id === soloId) : null
+          const countKitId = soloTrack?.kitId ?? currentTracks[0]?.kitId
+          if (countKitId) {
+            const countEvent = events.find(e =>
+              e.kitId === countKitId &&
+              e.noteNumber > 0 &&
+              Math.abs(e.position - event.position) < 0.001
+            )
+            if (countEvent) {
+              speakCount(countEvent.noteNumber, countEvent.noteDurationSec, countingVolume)
+            }
+          }
         }
 
         if (eventIdx < events.length) {
@@ -200,6 +227,11 @@ export function usePlayback() {
 
       if (e.code === 'Escape') {
         useBeatStore.getState().clearSolo()
+        return
+      }
+
+      if (e.code === 'KeyC' && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
+        useBeatStore.getState().toggleCounting()
         return
       }
 

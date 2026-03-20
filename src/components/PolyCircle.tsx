@@ -36,11 +36,9 @@ function dotPosition(fraction: number, radius: number): [number, number] {
 export function PolyCircle() {
   const tracks = useBeatStore(useShallow((s) => s.tracks))
   const activePosition = useBeatStore((s) => s.activePosition)
-  const playing = useBeatStore((s) => s.playing)
   const activeHits = useBeatStore((s) => s.activeHits)
 
-  const pos = playing && activePosition !== null ? activePosition : 0
-  // Rotation: the whole circle spins so the current position is at the top
+  const pos = activePosition ?? 0
   const rotation = pos * Math.PI * 2
 
   return (

@@ -23,7 +23,7 @@ export function getAudioContext(): AudioContext {
   return audioCtx
 }
 
-function getMaster(): GainNode {
+export function getMaster(): GainNode {
   getAudioContext()
   return masterGain!
 }

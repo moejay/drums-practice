@@ -203,12 +203,16 @@ interface BeatStore {
   activePosition: number | null
   activeHits: Set<string>
   soloTrackId: string | null
+  countingEnabled: boolean
+  countingVolume: number // 0..1
 
   setBpm: (bpm: number) => void
   setPlaying: (playing: boolean) => void
   toggleLoop: () => void
   setActivePosition: (pos: number | null) => void
   setActiveHits: (hits: Set<string>) => void
+  toggleCounting: () => void
+  setCountingVolume: (v: number) => void
   toggleSolo: (id: string) => void
   clearSolo: () => void
 
@@ -264,12 +268,16 @@ export const useBeatStore = create<BeatStore>((set, get) => ({
   activePosition: null,
   activeHits: new Set<string>(),
   soloTrackId: null,
+  countingEnabled: false,
+  countingVolume: 0.5,
 
   setBpm: (bpm) => set({ bpm: Math.max(40, Math.min(300, bpm)) }),
   setPlaying: (playing) => set({ playing, activePosition: playing ? 0 : null, activeHits: new Set() }),
   toggleLoop: () => set((s) => ({ loop: !s.loop })),
   setActivePosition: (pos) => set({ activePosition: pos }),
   setActiveHits: (hits) => set({ activeHits: hits }),
+  toggleCounting: () => set((s) => ({ countingEnabled: !s.countingEnabled })),
+  setCountingVolume: (v) => set({ countingVolume: Math.max(0, Math.min(1, v)) }),
   toggleSolo: (id) => set((s) => ({ soloTrackId: s.soloTrackId === id ? null : id })),
   clearSolo: () => set({ soloTrackId: null }),
 
