@@ -1,4 +1,5 @@
 import { useBeatStore } from '../store'
+import { loadCountingSamples } from '../counting'
 
 interface TransportProps {
   onTogglePlay: () => void
@@ -59,7 +60,7 @@ export function Transport({ onTogglePlay }: TransportProps) {
       </button>
 
       <button
-        onClick={toggleCounting}
+        onClick={() => { toggleCounting(); loadCountingSamples() }}
         title="Toggle counting tones (key: C)"
         className={`
           px-3 py-1.5 rounded text-xs font-mono transition-colors

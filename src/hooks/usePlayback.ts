@@ -2,7 +2,7 @@ import { useEffect, useRef, useCallback } from 'react'
 import { useBeatStore } from '../store'
 import { layoutCells } from '../utils'
 import { playDrumHit } from '../audio'
-import { speakCount, stopCounting } from '../counting'
+import { speakCount, stopCounting, loadCountingSamples } from '../counting'
 
 const SOLO_BG_VOLUME = 0.35
 
@@ -32,6 +32,9 @@ export function usePlayback() {
     const store = useBeatStore.getState()
     // Set playing state — keep tracks intact, just reset position
     useBeatStore.setState({ playing: true, activePosition: 0, activeHits: new Set() })
+
+    // Ensure counting samples are loaded
+    loadCountingSamples()
 
     // If playlist mode with variations, ensure we're on the right variation's tracks
     if (store.playlistMode && store.activePlaylist && store.activePlaylist.variations.length > 0) {
@@ -232,6 +235,7 @@ export function usePlayback() {
 
       if (e.code === 'KeyC' && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
         useBeatStore.getState().toggleCounting()
+        loadCountingSamples()
         return
       }
 

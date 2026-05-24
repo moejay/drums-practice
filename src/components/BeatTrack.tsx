@@ -175,7 +175,6 @@ export function BeatTrack({ trackId, trackIndex }: BeatTrackProps) {
             isActive={layoutIdx === activeLayoutIdx}
             fillPercent={fillPercent}
             isHovered={hoveredIndex === layoutIdx}
-            trackColorClass={kit.activeColor}
             muted={track.muted}
             kitHex={kit.hex}
             onToggleType={() => handleCycle(layoutIdx, 'type')}

@@ -6,7 +6,6 @@ interface BeatCellProps {
   isActive: boolean
   fillPercent: number // 0..1, how much of this cell has been played
   isHovered: boolean
-  trackColorClass: string
   muted: boolean
   kitHex: string
   onToggleType: () => void
@@ -23,7 +22,6 @@ export function BeatCell({
   isActive,
   fillPercent,
   isHovered,
-  trackColorClass,
   muted,
   kitHex,
   onToggleType,
